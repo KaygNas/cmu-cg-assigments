@@ -1,0 +1,10 @@
+// 本文件由 npm run snippet 命令自动生成，源文件见 snippet-template 目录 
+{
+  "test import": {
+    "scope": "typescript",
+    "prefix": "test import",
+    "body": [
+      "import { apply as _, pipe } from 'fp-ts/lib/function'\nimport { describe, expect, it } from 'vitest'\nimport type { Vector } from '../../interface'\nimport * as V from '../../vector-operation'\nimport * as N from '../../number-operation'\nimport * as M from '../../matrixe-operation'"
+    ]
+  }
+}

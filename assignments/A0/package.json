@@ -1,0 +1,26 @@
+{
+  "name": "cmu-cg-assigments",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "license": "ISC",
+  "keywords": [],
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest",
+    "lint": "eslint . --fix"
+  },
+  "dependencies": {
+    "fp-ts": "^2.12.3",
+    "lodash": "^4.17.21",
+    "ramda": "^0.28.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^0.26.3",
+    "@types/lodash": "^4.14.184",
+    "@types/ramda": "^0.28.15",
+    "eslint": "^8.23.0",
+    "typescript": "^4.8.2",
+    "vitest": "^0.22.1"
+  }
+}
