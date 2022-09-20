@@ -193,7 +193,7 @@ inline float dot(Vec2 l, Vec2 r) {
 	return l.x * r.x + l.y * r.y;
 }
 
-inline std::string to_string(Vec2 const &v) {
+inline std::string to_string(Vec2 const& v) {
 	return "(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ")";
 }
 
@@ -201,3 +201,33 @@ inline std::ostream& operator<<(std::ostream& out, Vec2 v) {
 	out << "{" << v.x << "," << v.y << "}";
 	return out;
 }
+
+// given line AB, CD,
+// let result_bc = AB cross AC 
+// let result_bd = AB cross AD 
+// if result_bc * result_bd > 0 || (result_bc == 0 && result_bd == 0) 
+//   AB not cross with CD
+// else 
+//   AB cross with CD 
+inline bool is_line_cross(Vec2 pt_a, Vec2 pt_b, Vec2 pt_c, Vec2 pt_d) {
+	auto cross = [](Vec2 u, Vec2 v) {
+		return u.x * v.y - u.y * v.x;
+	};
+	auto ab = pt_b - pt_a, ac = pt_c - pt_a, ad = pt_d - pt_a,
+		cd = pt_d - pt_c, ca = pt_a - pt_c, cb = pt_b - pt_c;
+	auto result_abc = cross(ab, ac), result_abd = cross(ab, ad),
+		result_cda = cross(cd, ca), result_cdb = cross(cd, cb);
+
+	if (std::max(pt_a.x, pt_b.x) < std::min(pt_c.x, pt_d.x)
+		|| std::max(pt_c.x, pt_d.x) < std::min(pt_a.x, pt_b.x)
+		|| std::max(pt_a.y, pt_b.y) < std::min(pt_c.y, pt_d.y)
+		|| std::max(pt_c.y, pt_d.y) < std::min(pt_a.y, pt_b.y)) {
+		return false;
+	}
+
+	if (result_abc * result_abd <= 0 && result_cda * result_cdb <= 0) {
+		return true;
+	} else {
+		return false;
+	}
+};
