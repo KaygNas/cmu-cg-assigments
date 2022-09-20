@@ -356,6 +356,89 @@ void Pipeline< p, P, flags >::rasterize_line(
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	//A1T2: rasterize_line
+	// pt = (vb - va) * t + va
+	// pt.x = (vb.x - va.x) * t + va.x
+	// pt.y = (vb.y - va.y) * t + va.y
+	// slop_x = vb.x - va.x, slop_y = vb.y - va.y
+	// if |slop_x| >= |slop_y| then:
+	//   increment at x
+	// else:
+	//   increment at y
+
+	auto a = va.fb_position.xy();
+	auto b = vb.fb_position.xy();
+	float slop_x = b.x - a.x;
+	float slop_y = b.y - a.y;
+
+	auto fy = [&](float x) {
+		float t = (x - a.x) / slop_x;
+		return slop_y * t + a.y;
+	};
+	auto fx = [&](float y) {
+		float t = (y - a.y) / slop_y;
+		return slop_x * t + a.x;
+	};
+	auto round_xy = [](float v) {
+		float fv = std::floor(v);
+		float cv = std::ceil(v);
+		float offset = v > 0 ? 0.5 : -0.5;
+		if (fv <= v && v < cv) {
+			return fv + offset;
+		} else {
+			return cv + offset;
+		}
+	};
+	auto iterateRange = [](
+		float const& start, float const& end, float const& step_,
+		std::function< void(float const&) > const& emit_value
+		) {
+			assert(step_ > 0 && "step should greater than 0");
+
+			bool const incremental = end - start > 0;
+			float const step = incremental ? step_ : -step_;
+			float value = start + step;
+			while (incremental ? value < end : value > end) {
+				emit_value(value);
+				value = value + step;
+			}
+	};
+	auto make_fragment = [&](float const x, float const y, float const z) {
+		Fragment mid;
+		mid.fb_position = Vec3(x, y, z);
+		mid.attributes = va.attributes;
+		mid.derivatives.fill(Vec2(0.0f, 0.0f));
+		return mid;
+	};
+	auto interpolate_z = [&va, &vb](float const x_i) {
+		return (x_i - va.fb_position.x) / (vb.fb_position.x - va.fb_position.x) * (vb.fb_position.z - va.fb_position.z) + va.fb_position.z;
+	};
+	float r_ax = round_xy(a.x), r_bx = round_xy(b.x);
+	float r_ay = round_xy(a.y), r_by = round_xy(b.y);
+	auto is_a_enterexit = is_enterexit_diamond(a, b, Vec2(std::floor(a.x), std::floor(a.y)));
+	auto is_b_enterexit = is_enterexit_diamond(a, b, Vec2(std::floor(b.x), std::floor(b.y)));
+	if (is_a_enterexit) {
+		emit_fragment(make_fragment(r_ax, r_ay, va.fb_position.z));
+	}
+	if (is_b_enterexit) {
+		emit_fragment(make_fragment(r_bx, r_by, vb.fb_position.z));
+	}
+	if (abs(slop_x) >= abs(slop_y)) {
+		assert(slop_x != 0.0f && "slop_x should not be 0");
+		iterateRange(
+			r_ax, r_bx, 1,
+			[&](float x_i) {
+				auto y_i = fy(x_i);
+				emit_fragment(make_fragment(x_i, round_xy(y_i), interpolate_z(x_i)));
+			});
+	} else {
+		assert(slop_y != 0.0f && "slop_y should not be 0");
+		iterateRange(
+			r_ay, r_by, 1,
+			[&](float y_i) {
+				auto x_i = fx(y_i);
+				emit_fragment(make_fragment(round_xy(x_i), y_i, interpolate_z(x_i)));
+			});
+	}
 
 }
 
