@@ -154,3 +154,18 @@ struct Pipeline {
 
 };
 
+// given line AB, diamond CDEF,
+// if line AB cross with any two side of diamond,
+// then line AB enter and exit the diamond.
+inline bool is_enterexit_diamond(Vec2 a, Vec2 b, Vec2 lt) {
+	auto c = lt + Vec2(0.5f, 0.0f), d = lt + Vec2(1.0f, 0.5f),
+		e = lt + Vec2(0.5f, 1.0f), f = lt + Vec2(0.0f, 0.5f);
+	std::array vertices = { c, d, e, f, c };
+	int count = 0;
+	for (int i = 0; i + 1 < vertices.size(); i++) {
+		if (is_line_cross(a, b, vertices[i], vertices[i + 1])) {
+			++count;
+		}
+	}
+	return count > 0;
+};
