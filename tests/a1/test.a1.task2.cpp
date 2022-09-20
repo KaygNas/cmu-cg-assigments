@@ -141,8 +141,8 @@ Test test_a1_task2_diamond_inside("a1.task2.diamond.inside", []() {
 		"line inside diamond (1,1)",
 		{ Vec2(1.5f, 1.25f), Vec2(1.25f, 1.5f) },
 		{ "...",
-		 "...",
-		 "..." }
+			"...",
+			"..." }
 	);
 	});
 
@@ -152,8 +152,8 @@ Test test_a1_task2_diamond_outside("a1.task2.diamond.outside", []() {
 		"line outside diamond (1,1)",
 		{ Vec2(1.125f, 1.25f), Vec2(1.25f, 1.125f) },
 		{ "...",
-		 "...",
-		 "..." }
+			"...",
+			"..." }
 	);
 	});
 
@@ -166,8 +166,8 @@ Test test_a1_task2_simple_horizontal("a1.task2.simple.horizontal", []() {
 		"horizontal line from (1.125, 1.125) to (4.875, 1.125)",
 		{ Vec2(1.125f, 1.125f), Vec2(4.875f, 1.125f) },
 		{ "......",
-		 ".####.",
-		 "......" }
+			".####.",
+			"......" }
 	);
 	});
 
@@ -177,12 +177,114 @@ Test test_a1_task2_simple_vertical("a1.task2.simple.vertical", []() {
 		"vertical line from (1.125, 1.125) to (1.125, 4.875)",
 		{ Vec2(1.125f, 1.125f), Vec2(1.125f, 4.875f) },
 		{ "...",
-		 ".#.",
-		 ".#.",
-		 ".#.",
-		 ".#.",
-		 "..." }
+			".#.",
+			".#.",
+			".#.",
+			".#.",
+			"..." }
 	);
 	});
 
 
+//----------------------------
+//horizontal and vertical lines with enter/exit logic needed:
+
+Test test_a1_task2_enterexit_horizontal("a1.task2.enterexit.horizontal", []() {
+	check_line_covers(
+		"horizontal line from (1.875, 1.125) to (4.175, 1.125)",
+		{ Vec2(1.875f, 1.125f), Vec2(4.175f, 1.125f) },
+		{ "......",
+			"..##..",
+			"......" }
+	);
+	});
+
+Test test_a1_task2_enterexit_vertical("a1.task2.enterexit.vertical", []() {
+	check_line_covers(
+		"vertical line from (1.125, 1.875) to (1.125, 4.175)",
+		{ Vec2(1.125f, 1.875f), Vec2(1.125f, 4.175f) },
+		{ "...",
+			"...",
+			".#.",
+			".#.",
+			"...",
+			"..." }
+	);
+	});
+
+
+//----------------------------
+//complex lines:
+
+Test test_a1_task2_complex_increment_line("a1.task2.complex.incrment.line", []() {
+	check_line_covers(
+		"increment line from (2.125, 2.125) to (4.875, 4.875)",
+		{ Vec2(2.125f, 2.125f), Vec2(4.875f, 4.875f) },
+		{ "......",
+			"....#.",
+			"...#..",
+			"..#...",
+			"......",
+			"......" }
+	);
+	});
+
+Test test_a1_task2_complex_decrement_line("a1.task2.complex.decrment.line", []() {
+	check_line_covers(
+		"decrement line from (2.125, 4.785) to (4.875, 2.125)",
+		{ Vec2(2.125f, 4.785f), Vec2(4.875f, 2.125f) },
+		{ "......",
+			"..#...",
+			"...#..",
+			"....#.",
+			"......",
+			"......" }
+	);
+	});
+
+Test test_a1_task2_is_line_cross("a1.task2.is_line_cross", []() {
+	auto a1 = Vec2(0.0f, 0.0f), a2 = Vec2(1.0f, 1.0f),
+		b1 = Vec2(0.0f, 1.0f), b2 = Vec2(1.0f, 0.0f),
+		c1 = Vec2(0.0f, 2.0f), c2 = Vec2(2.0f, 0.0f),
+		d1 = Vec2(0.0f, 3.0f), d2 = Vec2(2.0f, 0.0f),
+		e1 = Vec2(0.0f, 0.0f), e2 = Vec2(1.0f, -1.0f),
+		f1 = Vec2(0.0f, -1.0f), f2 = Vec2(-1.0f, 0.0f),
+		g1 = Vec2(1.0f, 0.0f), g2 = Vec2(2.0f, 1.0f),
+		h1 = Vec2(0.0f, 0.0f), h2 = Vec2(2.0f, 2.0f);
+
+	if (!is_line_cross(a1, a2, b1, b2))
+		throw Test::error("a should cross with b");
+	if (!is_line_cross(a1, a2, c1, c2))
+		throw Test::error("a should cross with c");
+	if (is_line_cross(a1, a2, d1, d2))
+		throw Test::error("a should not cross with d");
+	if (!is_line_cross(a1, a2, e1, e2))
+		throw Test::error("a should cross with e");
+	if (is_line_cross(a1, a2, f1, f2))
+		throw Test::error("a should not cross with f");
+	if (is_line_cross(a1, a2, g1, g2))
+		throw Test::error("a should not cross with g");
+	if (!is_line_cross(a1, a2, h1, h2))
+		throw Test::error("a should cross with h");
+	});
+
+
+Test test_a1_task2_is_enterexit_diamond("a1.task2.is_enterexit_diamond", []() {
+	auto a = Vec2(1.125f, 1.25f), b = Vec2(1.25f, 1.125f),
+		c = Vec2(1.785f, 1.785f), d = Vec2(1.25f, 1.5f),
+		e = Vec2(1.5f, 1.25f),
+		lt = Vec2(1.0f, 1.0f);
+
+	if (is_enterexit_diamond(a, b, lt)) {
+		throw Test::error("ab should not enter/exit diamond");
+	}
+	if (is_enterexit_diamond(d, e, lt)) {
+		throw Test::error("de should not enter/exit diamond");
+	}
+	if (!is_enterexit_diamond(a, c, lt)) {
+		throw Test::error("ac should enter/exit diamond");
+	}
+	if (!is_enterexit_diamond(a, e, lt)) {
+		throw Test::error("ae should enter/exit diamond");
+	}
+	});
