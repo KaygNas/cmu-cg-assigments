@@ -10,12 +10,12 @@
 
 template< PrimitiveType primitive_type, class Program, uint32_t flags >
 void Pipeline< primitive_type, Program, flags >::run(
-		std::vector< Vertex > const &vertices,
-		typename Program::Parameters const &parameters,
-		Framebuffer *framebuffer_) {
+	std::vector< Vertex > const& vertices,
+	typename Program::Parameters const& parameters,
+	Framebuffer* framebuffer_) {
 	//Framebuffer must be non-null:
 	assert(framebuffer_);
-	auto &framebuffer = *framebuffer_;
+	auto& framebuffer = *framebuffer_;
 
 	//A1T7: sample loop
 	//TODO: update this function to rasterize to *all* sample locations in the framebuffer.
@@ -31,9 +31,9 @@ void Pipeline< primitive_type, Program, flags >::run(
 
 	//--------------------------
 	//shade vertices:
-	for (auto const &v : vertices) {
+	for (auto const& v : vertices) {
 		ShadedVertex sv;
-		Program::shade_vertex( parameters, v.attributes, &sv.clip_position, &sv.attributes );
+		Program::shade_vertex(parameters, v.attributes, &sv.clip_position, &sv.attributes);
 		shaded_vertices.emplace_back(sv);
 	}
 
@@ -66,7 +66,7 @@ void Pipeline< primitive_type, Program, flags >::run(
 	};
 
 	//helper used to put output of clipping functions into clipped_vertices:
-	auto emit_vertex = [&](ShadedVertex const &sv) {
+	auto emit_vertex = [&](ShadedVertex const& sv) {
 		ClippedVertex cv;
 		float inv_w = 1.0f / sv.clip_position.w;
 		cv.fb_position = clip_to_fb_scale * inv_w * sv.clip_position.xyz() + clip_to_fb_offset;
@@ -78,14 +78,14 @@ void Pipeline< primitive_type, Program, flags >::run(
 	//actually do clipping:
 	if constexpr (primitive_type == PrimitiveType::Lines) {
 		for (uint32_t i = 0; i + 1 < shaded_vertices.size(); i += 2) {
-			clip_line( shaded_vertices[i], shaded_vertices[i+1], emit_vertex );
+			clip_line(shaded_vertices[i], shaded_vertices[i + 1], emit_vertex);
 		}
 	} else if constexpr (primitive_type == PrimitiveType::Triangles) {
 		for (uint32_t i = 0; i + 2 < shaded_vertices.size(); i += 3) {
-			clip_triangle( shaded_vertices[i], shaded_vertices[i+1], shaded_vertices[i+2], emit_vertex );
+			clip_triangle(shaded_vertices[i], shaded_vertices[i + 1], shaded_vertices[i + 2], emit_vertex);
 		}
 	} else {
-		static_assert( primitive_type == PrimitiveType::Lines, "Unsupported primitive type." );
+		static_assert(primitive_type == PrimitiveType::Lines, "Unsupported primitive type.");
 	}
 
 
@@ -95,26 +95,26 @@ void Pipeline< primitive_type, Program, flags >::run(
 	std::vector< Fragment > fragments;
 
 	//helper used to put output of rasterization functions into fragments:
-	auto emit_fragment = [&](Fragment const &f) {
+	auto emit_fragment = [&](Fragment const& f) {
 		fragments.emplace_back(f);
 	};
 	//actually do rasterization:
 	if constexpr (primitive_type == PrimitiveType::Lines) {
 		for (uint32_t i = 0; i + 1 < clipped_vertices.size(); i += 2) {
-			rasterize_line( clipped_vertices[i], clipped_vertices[i+1], emit_fragment );
+			rasterize_line(clipped_vertices[i], clipped_vertices[i + 1], emit_fragment);
 		}
 	} else if constexpr (primitive_type == PrimitiveType::Triangles) {
 		for (uint32_t i = 0; i + 2 < clipped_vertices.size(); i += 3) {
-			rasterize_triangle( clipped_vertices[i], clipped_vertices[i+1], clipped_vertices[i+2], emit_fragment );
+			rasterize_triangle(clipped_vertices[i], clipped_vertices[i + 1], clipped_vertices[i + 2], emit_fragment);
 		}
 	} else {
-		static_assert( primitive_type == PrimitiveType::Lines, "Unsupported primitive type." );
+		static_assert(primitive_type == PrimitiveType::Lines, "Unsupported primitive type.");
 	}
 
 	//--------------------------
 	//depth test + shade + blend fragments:
 	uint32_t out_of_range = 0; //check if rasterization produced fragments outside framebuffer (indicates something is wrong with clipping)
-	for (auto const &f : fragments) {
+	for (auto const& f : fragments) {
 
 		//fragment location (in pixels):
 		int32_t x = (int32_t)std::floor(f.fb_position.x);
@@ -129,8 +129,8 @@ void Pipeline< primitive_type, Program, flags >::run(
 		}
 
 		//local names that refer to destination sample in framebuffer:
-		float &fb_depth = framebuffer.depth_at(x,y,0);
-		Spectrum &fb_color = framebuffer.color_at(x,y,0);
+		float& fb_depth = framebuffer.depth_at(x, y, 0);
+		Spectrum& fb_color = framebuffer.color_at(x, y, 0);
 
 		//depth test:
 		if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Always) {
@@ -184,7 +184,7 @@ void Pipeline< primitive_type, Program, flags >::run(
 		}
 	}
 
-	
+
 
 }
 
@@ -193,7 +193,7 @@ void Pipeline< primitive_type, Program, flags >::run(
 
 //helper to interpolate between vertices:
 template< PrimitiveType p, class P, uint32_t F >
-auto Pipeline< p, P, F >::lerp(ShadedVertex const &a, ShadedVertex const &b, float t) -> ShadedVertex {
+auto Pipeline< p, P, F >::lerp(ShadedVertex const& a, ShadedVertex const& b, float t) -> ShadedVertex {
 	ShadedVertex ret;
 	ret.clip_position = (b.clip_position - a.clip_position) * t + a.clip_position;
 	for (uint32_t i = 0; i < ret.attributes.size(); ++i) {
@@ -208,7 +208,7 @@ auto Pipeline< p, P, F >::lerp(ShadedVertex const &a, ShadedVertex const &b, flo
  *  emit_vertex: call to produce truncated line
  *
  * If clipping shortens the line, attributes of the shortened line should respect the pipeline's interpolation mode.
- * 
+ *
  * If no portion of the line remains after clipping, emit_vertex will not be called.
  *
  * The clipped line should have the same direction as the full line.
@@ -216,11 +216,12 @@ auto Pipeline< p, P, F >::lerp(ShadedVertex const &a, ShadedVertex const &b, flo
  */
 template< PrimitiveType p, class P, uint32_t flags >
 void Pipeline< p, P, flags >::clip_line(
-		ShadedVertex const &va, ShadedVertex const &vb,
-		std::function< void(ShadedVertex const &) > const &emit_vertex
-	) {
+	ShadedVertex const& va, ShadedVertex const& vb,
+	std::function< void(ShadedVertex const&) > const& emit_vertex
+) {
 	//Determine portion of line over which:
 	// pt = (b-a) * t + a
+	// pt is a point on line
 	// -pt.w <= pt.x <= pt.w
 	// -pt.w <= pt.y <= pt.w
 	// -pt.w <= pt.z <= pt.w
@@ -229,7 +230,7 @@ void Pipeline< p, P, flags >::clip_line(
 
 	float min_t = 0.0f;
 	float max_t = 1.0f;
-	
+
 	// want to set range of t for a bunch of equations like:
 	//    a.x + t * ba.x <= a.w + t * ba.w
 	// so here's a helper:
@@ -254,27 +255,27 @@ void Pipeline< p, P, flags >::clip_line(
 			max_t = std::min(max_t, (l - r) / (dr - dl));
 		}
 	};
-	
+
 	//local names for clip positions and their difference:
-	Vec4 const &a = va.clip_position;
-	Vec4 const &b = vb.clip_position;
-	Vec4 const ba = b-a;
+	Vec4 const& a = va.clip_position;
+	Vec4 const& b = vb.clip_position;
+	Vec4 const ba = b - a;
 
 	// -a.w - t * ba.w <= a.x + t * ba.x <= a.w + t * ba.w
-	clip_range(-a.w,-ba.w, a.x, ba.x);
-	clip_range( a.x, ba.x, a.w, ba.w);
+	clip_range(-a.w, -ba.w, a.x, ba.x);
+	clip_range(a.x, ba.x, a.w, ba.w);
 	// -a.w - t * ba.w <= a.y + t * ba.y <= a.w + t * ba.w
-	clip_range(-a.w,-ba.w, a.y, ba.y);
-	clip_range( a.y, ba.y, a.w, ba.w);
+	clip_range(-a.w, -ba.w, a.y, ba.y);
+	clip_range(a.y, ba.y, a.w, ba.w);
 	// -a.w - t * ba.w <= a.z + t * ba.z <= a.w + t * ba.w
-	clip_range(-a.w,-ba.w, a.z, ba.z);
-	clip_range( a.z, ba.z, a.w, ba.w);
+	clip_range(-a.w, -ba.w, a.z, ba.z);
+	clip_range(a.z, ba.z, a.w, ba.w);
 
 	if (min_t < max_t) {
 		if (min_t == 0.0f) {
 			emit_vertex(va);
 		} else {
-			ShadedVertex out = lerp(va,vb,min_t);
+			ShadedVertex out = lerp(va, vb, min_t);
 			//don't interpolate attributes if in flat shading mode:
 			if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) out.attributes = va.attributes;
 			emit_vertex(out);
@@ -282,7 +283,7 @@ void Pipeline< p, P, flags >::clip_line(
 		if (max_t == 1.0f) {
 			emit_vertex(vb);
 		} else {
-			ShadedVertex out = lerp(va,vb,max_t);
+			ShadedVertex out = lerp(va, vb, max_t);
 			//don't interpolate attributes if in flat shading mode:
 			if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) out.attributes = va.attributes;
 			emit_vertex(out);
@@ -297,7 +298,7 @@ void Pipeline< p, P, flags >::clip_line(
  *  emit_vertex: call to produce clipped triangles (three calls per triangle)
  *
  * If clipping truncates the triangle, attributes of the new vertices should respect the pipeline's interpolation mode.
- * 
+ *
  * If no portion of the triangle remains after clipping, emit_vertex will not be called.
  *
  * The clipped triangle(s) should have the same winding order as the full triangle.
@@ -305,9 +306,9 @@ void Pipeline< p, P, flags >::clip_line(
  */
 template< PrimitiveType p, class P, uint32_t flags >
 void Pipeline< p, P, flags >::clip_triangle(
-		ShadedVertex const &va, ShadedVertex const &vb, ShadedVertex const &vc,
-		std::function< void(ShadedVertex const &) > const &emit_vertex
-	) {
+	ShadedVertex const& va, ShadedVertex const& vb, ShadedVertex const& vc,
+	std::function< void(ShadedVertex const&) > const& emit_vertex
+) {
 	//A1T3: clip_triangle
 	//TODO: correct code!
 	emit_vertex(va);
@@ -348,24 +349,13 @@ void Pipeline< p, P, flags >::clip_triangle(
 
 template< PrimitiveType p, class P, uint32_t flags >
 void Pipeline< p, P, flags >::rasterize_line(
-		ClippedVertex const &va, ClippedVertex const &vb,
-		std::function< void(Fragment const &) > const &emit_fragment
-	) {
+	ClippedVertex const& va, ClippedVertex const& vb,
+	std::function< void(Fragment const&) > const& emit_fragment
+) {
 	if constexpr ((flags & PipelineMask_Interp) != Pipeline_Interp_Flat) {
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	//A1T2: rasterize_line
-
-	//TODO: Check out the block comment above this function for more information on how to fill in this function!
-
-	{ //As a placeholder, draw a point in the middle of the line:
-		//(remove this code once you have a real implementation)
-		Fragment mid;
-		mid.fb_position = (va.fb_position + vb.fb_position) / 2.0f;
-		mid.attributes = va.attributes;
-		mid.derivatives.fill(Vec2(0.0f, 0.0f));
-		emit_fragment(mid);
-	}
 
 }
 
@@ -406,9 +396,9 @@ void Pipeline< p, P, flags >::rasterize_line(
  */
 template< PrimitiveType p, class P, uint32_t flags >
 void Pipeline< p, P, flags >::rasterize_triangle(
-		ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc,
-		std::function< void(Fragment const &) > const &emit_fragment
-	) {
+	ClippedVertex const& va, ClippedVertex const& vb, ClippedVertex const& vc,
+	std::function< void(Fragment const&) > const& emit_fragment
+) {
 	//NOTE: it is okay to restructure this function to allow these tasks to use the
 	// same code paths. Be aware, however, that all of them need to remain working!
 	// (e.g., if you break Flat while implementing Correct, you won't get points
@@ -428,14 +418,14 @@ void Pipeline< p, P, flags >::rasterize_triangle(
 
 		//As a placeholder, here's code that calls the Flat interpolation version of the function:
 		//(remove this and replace it with a real solution)
-		Pipeline< PrimitiveType::Lines, P, (flags  & ~PipelineMask_Interp) | Pipeline_Interp_Flat >::rasterize_triangle(va, vb, vc, emit_fragment);
+		Pipeline< PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Flat >::rasterize_triangle(va, vb, vc, emit_fragment);
 	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
 		//A1T5: perspective correct triangles
 		//TODO: rasterize triangle (block comment above this function).
 
 		//As a placeholder, here's code that calls the Screen-space interpolation function:
 		//(remove this and replace it with a real solution)
-		Pipeline< PrimitiveType::Lines, P, (flags  & ~PipelineMask_Interp) | Pipeline_Interp_Screen >::rasterize_triangle(va, vb, vc, emit_fragment);
+		Pipeline< PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Screen >::rasterize_triangle(va, vb, vc, emit_fragment);
 	}
 }
 
