@@ -5,8 +5,11 @@
 
 #include "../lib/log.h"
 #include "../lib/mathlib.h"
-
+#include <list>
 #include <iostream>
+#include <set>
+#include <algorithm>
+
 
 template< PrimitiveType primitive_type, class Program, uint32_t flags >
 void Pipeline< primitive_type, Program, flags >::run(
@@ -310,11 +313,253 @@ void Pipeline< p, P, flags >::clip_triangle(
 	std::function< void(ShadedVertex const&) > const& emit_vertex
 ) {
 	//A1T3: clip_triangle
-	//TODO: correct code!
-	emit_vertex(va);
-	emit_vertex(vb);
-	emit_vertex(vc);
+
+	auto print_vec4 = [](auto prefix, Vec4 const& v) {
+		std::cout << "\n" << prefix << ": " << v;
+	};
+	auto print_vertices = [&](std::vector<ShadedVertex>& vertices) {
+		std::cout << "\nvertices:";
+		int i = 0;
+		for (ShadedVertex& vertex : vertices) {
+			print_vec4(i, vertex.clip_position);
+			++i;
+		}
+	};
+
+
+
+	// ------------
+	// clip triangle to produce more tirangle
+	struct Plane {
+		std::function<float(Vec4)> f;
+		Vec4 n;
+		Vec4 q;
+	};
+	float w = va.clip_position.w;
+	float lw, rw, bw, tw, fw, nw;
+	lw = bw = fw = 0 * w;
+	rw = tw = nw = 1 * w;
+
+	Vec4 lq(lw, 0.0f, 0.0f, w);
+	Vec4 rq(rw, 0.0f, 0.0f, w);
+	Vec4 bq(0.0f, bw, 0.0f, w);
+	Vec4 tq(0.0f, tw, 0.0f, w);
+	Vec4 fq(0.0f, 0.0f, fw, w);
+	Vec4 nq(0.0f, 0.0f, nw, w);
+
+	Vec4 ln(-lw, 0.0f, 0.0f, w);
+	Vec4 rn(-rw, 0.0f, 0.0f, w);
+	Vec4 bn(0.0f, -bw, 0.0f, w);
+	Vec4 tn(0.0f, -tw, 0.0f, w);
+	Vec4 fn(0.0f, 0.0f, -fw, w);
+	Vec4 nn(0.0f, 0.0f, -nw, w);
+
+	auto lf = [&](Vec4 pt) {
+		return -pt.x + lw;
+	};
+	auto rf = [&](Vec4 pt) {
+		return pt.x - rw;
+	};
+	auto bf = [&](Vec4 pt) {
+		return -pt.y + bw;
+	};
+	auto tf = [&](Vec4 pt) {
+		return pt.y - tw;
+	};
+	auto ff = [&](Vec4 pt) {
+		return -pt.z + fw;
+	};
+	auto nf = [&](Vec4 pt) {
+		return pt.z - nw;
+	};
+
+	std::vector <Plane> planes{
+		 Plane{ lf, fn, fq },
+		 Plane{ rf, rn, rq },
+		 Plane{ bf, bn, bq },
+		 Plane{ tf, tn, tq },
+		 Plane{ ff, fn, fq },
+		 Plane{ nf, nn, nq }
+	};
+
+	// for each of six planes do
+	// if triangle entirely outside of plane then
+	//   break
+	// else if triangle spans plane then
+	//   clip triangle
+	//   if quadrilateral is left then
+	//      break into two triangles
+	std::vector<ShadedVertex> vertices{ va, vb, vc };
+
+	for (Plane& plane : planes) {
+		for (int i = 0; i + 2 < vertices.size();i += 3) {
+			ShadedVertex va_ = vertices[i];
+			ShadedVertex vb_ = vertices[i + 1];
+			ShadedVertex vc_ = vertices[i + 2];
+			auto fa = plane.f(va_.clip_position);
+			auto fb = plane.f(vb_.clip_position);
+			auto fc = plane.f(vc_.clip_position);
+			// is entirely outside
+			if (fa > 0 && fb > 0 && fc > 0) {
+				std::cout << "\n------- vertices cleared ------\nvertices is entirely outside;";
+				vertices.clear();
+				std::cout << "\nvertices.size(): " << vertices.size() << "\n";
+				break;
+			}
+			// is entirely inside
+			else if (fa <= 0 && fb <= 0 && fc <= 0) {
+			} else {
+
+				if (fa * fc >= 0) {
+					std::swap(fb, fc);
+					std::swap(vb_, vc_);
+					std::swap(fa, fb);
+					std::swap(va_, vb_);
+				} else if (fb * fc >= 0) {
+					std::swap(fa, fc);
+					std::swap(va_, vc_);
+					std::swap(fa, fb);
+					std::swap(va_, vb_);
+				}
+
+				auto intersection_vertex = [&](ShadedVertex va, ShadedVertex vb) {
+					// t = n * a + D / (n * (a - b)); D = -n * q;
+					auto D = dot(-plane.n, plane.q);
+					auto t = (dot(plane.n, va.clip_position) + D) / dot(plane.n, (va.clip_position - vb.clip_position));
+					return lerp(va, vb, t);
+				};
+				auto A = intersection_vertex(va_, vc_);
+				auto B = intersection_vertex(vb_, vc_);
+
+				if (fc <= 0) {
+					vertices[i] = A;
+					vertices[i + 1] = B;
+					vertices[i + 2] = vc_;
+				} else {
+					vertices[i] = va_;
+					vertices[i + 1] = vb_;
+					vertices[i + 2] = A;
+					vertices.insert(vertices.begin() + i + 3, { vb_,B,A });
+				}
+
+				std::cout << "\n cutting: " << i / 3 << " q:" << plane.q;
+				std::cout << "\na: " << va_.clip_position << " b: " << vb_.clip_position << " c: " << vc_.clip_position;
+				std::cout << "\nfa: " << fa << " fb: " << fb << " fc: " << fc;
+				std::cout << "\nA: " << A.clip_position << " B: " << B.clip_position;
+
+				print_vertices(vertices);
+			}
+		}
+	}
+
+	// -------------
+	// compact triangles and minimize the number of triangles
+	auto join_polygon = [&](std::vector<ShadedVertex>& a, std::vector<ShadedVertex>& b) {
+		std::cout << "\n\na ----";
+		print_vertices(a);
+		std::cout << "\nb ----";
+		print_vertices(b);
+
+		std::vector<ShadedVertex> vertices;
+		for (int i = 1; i <= a.size(); ++i) {
+			if (vertices.size() > 0) break;
+
+			ShadedVertex va_1 = a[i - 1];
+			ShadedVertex va_2 = a[i % a.size()];
+			for (int j = 1; j <= b.size(); ++j) {
+				ShadedVertex vb_1 = b[j - 1];
+				ShadedVertex vb_2 = b[j % b.size()];
+				if (va_1.clip_position == vb_2.clip_position && va_2.clip_position == vb_1.clip_position) {
+					print_vec4("va_1", va_1.clip_position);
+					print_vec4("va_2", va_2.clip_position);
+					print_vec4("vb_1", vb_1.clip_position);
+					print_vec4("vb_2", vb_2.clip_position);
+					auto emplace_vertex = [&](ShadedVertex& vertex) {
+						if (vertices.size() < 2) {
+							vertices.emplace_back(vertex);
+							return;
+						}
+						// check is the vertex is on the same line
+						// if is, replace the vertex
+						// else emplace
+						Vec4& a = vertices[vertices.size() - 2].clip_position;
+						Vec4& b = vertices[vertices.size() - 1].clip_position;
+						Vec4& c = vertex.clip_position;
+						if ((b - a).unit() == (c - a).unit()) {
+							print_vec4("replacing", b);
+							print_vec4("to", c);
+							vertices[vertices.size() - 1] = vertex;
+						} else {
+							vertices.emplace_back(vertex);
+						}
+					};
+					for (int n = 0; n < i; ++n) {
+						print_vec4("a[n]", a[n].clip_position);
+						emplace_vertex(a[n]);
+					}
+					for (int k = (j + 1) % b.size(); k < (j + 1 >= b.size() ? j - 1 : b.size()); ++k) {
+						print_vec4("b[k]", b[k].clip_position);
+						emplace_vertex(b[k]);
+					}
+					for (int l = i; l < a.size(); ++l) {
+						print_vec4("a[l]", a[l].clip_position);
+						emplace_vertex(a[l]);
+					}
+
+					break;
+				}
+			}
+		}
+		return vertices;
+	};
+
+	auto slice_vector = [](std::vector<ShadedVertex>& vector, int start, int end) {
+		if (vector.size() == 0) {
+			std::vector<ShadedVertex> new_vector;
+			return new_vector;
+		}
+
+		start = std::clamp(start, 0, (int)vector.size() - 1);
+		end = std::clamp(end, start, (int)vector.size());
+		std::cout << "\n start: " << start << " end: " << end;
+		std::vector<ShadedVertex> new_vector(vector.begin() + start, vector.begin() + end);
+		return new_vector;
+	};
+	std::vector<ShadedVertex> polygon = slice_vector(vertices, 0, 3);
+	std::vector<ShadedVertex> vertices_candidates = slice_vector(vertices, 3, INFINITY);
+	int last_size = INFINITY;
+	while (vertices_candidates.size() != last_size) {
+		last_size = vertices_candidates.size();
+		for (int i = 2; i < vertices_candidates.size();i += 3) {
+			std::vector<ShadedVertex> next_polygon(vertices_candidates.begin() + i - 2, vertices_candidates.begin() + i + 1);
+			std::vector<ShadedVertex> new_polygon = join_polygon(polygon, next_polygon);
+			if (new_polygon.size() > 0) {
+				polygon = new_polygon;
+				vertices_candidates.erase(vertices_candidates.begin() + i - 2, vertices_candidates.begin() + i + 1);
+				std::cout << "\nvertices_candidates.size() " << vertices_candidates.size();
+				std::cout << "\nlast_size " << last_size;
+				print_vertices(vertices_candidates);
+				break;
+			}
+		}
+	}
+
+	// split polygon into mutilple triangles
+	std::vector<ShadedVertex> triangles;
+	if (polygon.size() > 0) {
+		ShadedVertex v_origin = polygon.front();
+		for (int i = 2; i < polygon.size(); ++i) {
+			triangles.emplace_back(v_origin);
+			triangles.emplace_back(polygon[i - 1]);
+			triangles.emplace_back(polygon[i]);
+		}
+	}
+
+	for (ShadedVertex& vertex : triangles) {
+		emit_vertex(vertex);
+	}
 }
+
 
 //-------------------------------------------------------------------------
 //rasterization functions

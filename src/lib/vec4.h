@@ -224,12 +224,12 @@ inline Vec4 hmax(Vec4 l, Vec4 r) {
 	return Vec4(std::max(l.x, r.x), std::max(l.y, r.y), std::max(l.z, r.z), std::max(l.w, r.w));
 }
 
-/// 4D dot product
+/// 4D dot product.clip_position
 inline float dot(Vec4 l, Vec4 r) {
 	return l.x * r.x + l.y * r.y + l.z * r.z + l.w * r.w;
 }
 
-inline std::string to_string(Vec4 const &v) {
+inline std::string to_string(Vec4 const& v) {
 	return "(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ", " + std::to_string(v.w) + ")";
 }
 
