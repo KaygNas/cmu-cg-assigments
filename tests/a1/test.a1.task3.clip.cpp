@@ -9,7 +9,7 @@
 
 using TestPipeline = Pipeline< PrimitiveType::Triangles, Programs::Lambertian, Pipeline_Blend_Replace | Pipeline_Depth_Less | Pipeline_Interp_Flat >;
 
-void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > const &verts, std::initializer_list< Vec4 > const &expected_) {
+void check_clip_triangle(std::string const& desc, std::initializer_list< Vec4 > const& verts, std::initializer_list< Vec4 > const& expected_) {
 
 	std::vector< Vec4 > expected(expected_);
 
@@ -17,7 +17,7 @@ void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > 
 	assert(verts.size() == 3);
 	std::vector< TestPipeline::ShadedVertex > triangle;
 	uint32_t idx = 1;
-	for (Vec4 const &vert : verts) {
+	for (Vec4 const& vert : verts) {
 		TestPipeline::ShadedVertex sv;
 		sv.clip_position = vert;
 		sv.attributes.fill(float(idx));
@@ -28,7 +28,7 @@ void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > 
 	//run clip_triangle:
 	std::vector< Vec4 > got;
 	got.reserve(6);
-	auto emit_vertex = [&](TestPipeline::ShadedVertex const &sv) {
+	auto emit_vertex = [&](TestPipeline::ShadedVertex const& sv) {
 		got.emplace_back(sv.clip_position);
 	};
 	TestPipeline::clip_triangle(triangle[0], triangle[1], triangle[2], emit_vertex);
@@ -39,11 +39,11 @@ void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > 
 		std::cout << "    vb: " << triangle[1].clip_position << '\n';
 		std::cout << "    vc: " << triangle[2].clip_position << '\n';
 		std::cout << "  clip_triangle(va,vb,vc) emitted " << float(got.size()) / 3.0f << " triangles:\n";
-		for (auto const &g : got) {
+		for (auto const& g : got) {
 			std::cout << "    " << g << '\n';
 		}
 		std::cout << "  expected triangulation of:\n";
-		for (auto const &e : expected) {
+		for (auto const& e : expected) {
 			std::cout << "    " << e << '\n';
 		}
 		std::cout.flush();
@@ -69,6 +69,8 @@ void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > 
 		std::vector< float > distance(got.size(), std::numeric_limits< float >::infinity());
 		uint32_t vi = 0;
 		for (Vec4 v : expected) {
+			// compare each got vertex, set the nearest one index vi for got[g]
+			// so that got[g] can found which one in expected is matched. 
 			for (uint32_t g = 0; g < got.size(); ++g) {
 				float test = (got[g] - v).norm_squared();
 				if (test < distance[g]) {
@@ -88,24 +90,24 @@ void check_clip_triangle(std::string const &desc, std::initializer_list< Vec4 > 
 	}
 
 	//extract perimeter of got:
-	std::vector< bool > on_perimeter( expected.size() * expected.size(), false );
+	std::vector< bool > on_perimeter(expected.size() * expected.size(), false);
 	auto toggle = [&](uint32_t a, uint32_t b) {
-		if (on_perimeter[ b * expected.size() + a ]) {
+		if (on_perimeter[b * expected.size() + a]) {
 			//if b-a exists, cancel it out:
-			on_perimeter[ b * expected.size() + a ] = false;
+			on_perimeter[b * expected.size() + a] = false;
 		} else {
 			//add in a-b:
-			if (on_perimeter[ a * expected.size() + b ]) {
+			if (on_perimeter[a * expected.size() + b]) {
 				dump_info();
 				throw Test::error("Example '" + desc + "' mentions edge " + to_string(expected[a]) + "-" + to_string(expected[b]) + " twice.");
 			}
-			on_perimeter[ a * expected.size() + b ] = true;
+			on_perimeter[a * expected.size() + b] = true;
 		}
 	};
 	for (uint32_t i = 2; i < got.size(); i += 3) {
-		toggle(index[i-2], index[i-1]);
-		toggle(index[i-1], index[i  ]);
-		toggle(index[i  ], index[i-2]);
+		toggle(index[i - 2], index[i - 1]);
+		toggle(index[i - 1], index[i]);
+		toggle(index[i], index[i - 2]);
 	}
 
 	//check that perimeter is exactly what we want:
@@ -138,7 +140,7 @@ Test test_a1_task3_clip_simple_w1("a1.task3.clip.simple.w1", []() {
 		{ Vec4(0.5f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.5f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.5f, 1.0f) },
 		{ Vec4(0.5f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.5f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.5f, 1.0f) }
 	);
-});
+	});
 
 
 Test test_a1_task3_clip_simple_outside_x("a1.task3.clip.simple.outside.x", []() {
@@ -147,7 +149,7 @@ Test test_a1_task3_clip_simple_outside_x("a1.task3.clip.simple.outside.x", []() 
 		{ Vec4(2.5f, 0.0f, 0.0f, 1.0f), Vec4(2.0f, 0.5f, 0.0f, 1.0f), Vec4(2.0f, 0.0f, 0.5f, 1.0f) },
 		{ }
 	);
-});
+	});
 
 
 Test test_a1_task3_clip_simple_outside_w_1("a1.task3.clip.simple.outside.w-1", []() {
@@ -156,6 +158,24 @@ Test test_a1_task3_clip_simple_outside_w_1("a1.task3.clip.simple.outside.w-1", [
 		{ Vec4(0.5f, 0.0f, 0.0f,-1.0f), Vec4(0.0f, 0.5f, 0.0f,-1.0f), Vec4(0.0f, 0.0f, 0.5f,-1.0f) },
 		{ }
 	);
-});
+	});
 
+Test test_a1_task3_clip_complex_outside_w1("a1.task3.clip.complex.outside.w1", []() {
+	check_clip_triangle(
+		"triangle vertices outside clip volume but still spans with w=1",
+		{ Vec4(10.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 10.0f, 1.0f) },
 
+		{ Vec4(1.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.0f, 1.0f),
+			Vec4(0.0f, 0.0f, 1.0f, 1.0f), Vec4(1.0f, 0.0f, 1.0f, 1.0f) }
+	);
+	});
+
+Test test_a1_task3_clip_complex_intersect_w1("a1.task3.clip.complex.intersect.w1", []() {
+	check_clip_triangle(
+		"triangle vertices intersect with clip volume",
+		{ Vec4(1.5f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 1.5f, 1.0f) },
+
+		{ Vec4(1.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 0.0f, 1.0f), Vec4(0.0f, 0.0f, 1.0f, 1.0f),
+			Vec4(0.5f, 0.0f, 1.0f, 1.0f), Vec4(1.0f, 0.0f, 0.5f, 1.0f) }
+	);
+	});
