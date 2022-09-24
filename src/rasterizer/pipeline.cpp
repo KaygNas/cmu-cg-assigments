@@ -314,20 +314,6 @@ void Pipeline< p, P, flags >::clip_triangle(
 ) {
 	//A1T3: clip_triangle
 
-	auto print_vec4 = [](auto prefix, Vec4 const& v) {
-		std::cout << "\n" << prefix << ": " << v;
-	};
-	auto print_vertices = [&](std::vector<ShadedVertex>& vertices) {
-		std::cout << "\nvertices:";
-		int i = 0;
-		for (ShadedVertex& vertex : vertices) {
-			print_vec4(i, vertex.clip_position);
-			++i;
-		}
-	};
-
-
-
 	// ------------
 	// clip triangle to produce more tirangle
 	struct Plane {
@@ -401,9 +387,7 @@ void Pipeline< p, P, flags >::clip_triangle(
 			auto fc = plane.f(vc_.clip_position);
 			// is entirely outside
 			if (fa > 0 && fb > 0 && fc > 0) {
-				std::cout << "\n------- vertices cleared ------\nvertices is entirely outside;";
 				vertices.clear();
-				std::cout << "\nvertices.size(): " << vertices.size() << "\n";
 				break;
 			}
 			// is entirely inside
@@ -441,13 +425,6 @@ void Pipeline< p, P, flags >::clip_triangle(
 					vertices[i + 2] = A;
 					vertices.insert(vertices.begin() + i + 3, { vb_,B,A });
 				}
-
-				std::cout << "\n cutting: " << i / 3 << " q:" << plane.q;
-				std::cout << "\na: " << va_.clip_position << " b: " << vb_.clip_position << " c: " << vc_.clip_position;
-				std::cout << "\nfa: " << fa << " fb: " << fb << " fc: " << fc;
-				std::cout << "\nA: " << A.clip_position << " B: " << B.clip_position;
-
-				print_vertices(vertices);
 			}
 		}
 	}
@@ -455,11 +432,6 @@ void Pipeline< p, P, flags >::clip_triangle(
 	// -------------
 	// compact triangles and minimize the number of triangles
 	auto join_polygon = [&](std::vector<ShadedVertex>& a, std::vector<ShadedVertex>& b) {
-		std::cout << "\n\na ----";
-		print_vertices(a);
-		std::cout << "\nb ----";
-		print_vertices(b);
-
 		std::vector<ShadedVertex> vertices;
 		for (int i = 1; i <= a.size(); ++i) {
 			if (vertices.size() > 0) break;
@@ -470,10 +442,6 @@ void Pipeline< p, P, flags >::clip_triangle(
 				ShadedVertex vb_1 = b[j - 1];
 				ShadedVertex vb_2 = b[j % b.size()];
 				if (va_1.clip_position == vb_2.clip_position && va_2.clip_position == vb_1.clip_position) {
-					print_vec4("va_1", va_1.clip_position);
-					print_vec4("va_2", va_2.clip_position);
-					print_vec4("vb_1", vb_1.clip_position);
-					print_vec4("vb_2", vb_2.clip_position);
 					auto emplace_vertex = [&](ShadedVertex& vertex) {
 						if (vertices.size() < 2) {
 							vertices.emplace_back(vertex);
@@ -486,23 +454,18 @@ void Pipeline< p, P, flags >::clip_triangle(
 						Vec4& b = vertices[vertices.size() - 1].clip_position;
 						Vec4& c = vertex.clip_position;
 						if ((b - a).unit() == (c - a).unit()) {
-							print_vec4("replacing", b);
-							print_vec4("to", c);
 							vertices[vertices.size() - 1] = vertex;
 						} else {
 							vertices.emplace_back(vertex);
 						}
 					};
 					for (int n = 0; n < i; ++n) {
-						print_vec4("a[n]", a[n].clip_position);
 						emplace_vertex(a[n]);
 					}
 					for (int k = (j + 1) % b.size(); k < (j + 1 >= b.size() ? j - 1 : b.size()); ++k) {
-						print_vec4("b[k]", b[k].clip_position);
 						emplace_vertex(b[k]);
 					}
 					for (int l = i; l < a.size(); ++l) {
-						print_vec4("a[l]", a[l].clip_position);
 						emplace_vertex(a[l]);
 					}
 
@@ -536,9 +499,6 @@ void Pipeline< p, P, flags >::clip_triangle(
 			if (new_polygon.size() > 0) {
 				polygon = new_polygon;
 				vertices_candidates.erase(vertices_candidates.begin() + i - 2, vertices_candidates.begin() + i + 1);
-				std::cout << "\nvertices_candidates.size() " << vertices_candidates.size();
-				std::cout << "\nlast_size " << last_size;
-				print_vertices(vertices_candidates);
 				break;
 			}
 		}
